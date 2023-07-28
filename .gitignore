@@ -1,0 +1,6 @@
+.DS_Store
+.cache*
+.idea
+*.py[cod]
+gpt_functions/*
+!gpt_functions/weather.py
