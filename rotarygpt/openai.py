@@ -141,7 +141,12 @@ Connection: close""".replace(b"\n", b"\r\n")
         if b'Transfer-Encoding: chunked' in header:
             body = self._unchunk_body(body)
 
-        parsed_body = json.loads(body.decode('utf-8'))
+        decoded_body = body.decode('utf-8')
+        parsed_body = json.loads(decoded_body)
+
+        if 'choices' not in parsed_body:
+            raise Exception(f"GPT returned an error: {decoded_body}")
+
         text = parsed_body['choices'][0]['message'] if 'choices' in parsed_body else None
 
         self.socket.close()

@@ -24,6 +24,7 @@ class Conversation:
     def start(self, shutdown_event = None):
         logging.info("Conversation started")
         self.shutdown_event = shutdown_event
+        PollyRequest.voice = PollyRequest.default_voice
 
         try:
             self._greet()
@@ -42,6 +43,8 @@ class Conversation:
                 agent_text = None
                 while agent_text is None and not self.shutdown_event.is_set():
                     agent_text = self._send_gpt_request()
+                    if self.shutdown_event.is_set():
+                        break
 
                 if self.shutdown_event.is_set():
                     break
@@ -192,5 +195,7 @@ class Conversation:
         self.audio_chunk_queue_out.put(converted_chunk)
 
     def _germanize(self, text):
-        return text.replace('the', 'ze').replace('The', 'Ze')
+        return text.\
+            replace('the', 'ze').\
+            replace('The', 'Ze')
 

@@ -114,7 +114,7 @@ def unchunk_body(body):
 
     return unchunked_body
 
-GPT_FUNCTION = {
+GPT_FUNCTIONS = [{
     "name": "get_weather_today",
     "description": "Gets the current weather for today for Barcelona, where the user is located.",
     "callable": get_weather,
@@ -132,7 +132,7 @@ GPT_FUNCTION = {
         },
         "required": ['location', 'day'],
     }
-}
+}]
 
 if __name__ == '__main__':
     print(get_weather({'location': "London", 'day': "2023-07-29"}))

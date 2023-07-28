@@ -7,6 +7,9 @@ import hmac
 import datetime
 
 class PollyRequest:
+    default_voice = "Daniel"
+    voice = default_voice
+
     def __init__(self, chunk_callback, shutdown_event):
         self.chunk_callback = chunk_callback
         self.shutdown_event = shutdown_event
@@ -20,7 +23,7 @@ class PollyRequest:
 
     def send_request(self, text):
         parameters = {
-          "VoiceId": "Daniel",
+          "VoiceId": PollyRequest.voice,
           "OutputFormat": "pcm",
           "Text": text,
           "Engine": "neural",

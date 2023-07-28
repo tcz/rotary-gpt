@@ -3,4 +3,5 @@
 .idea
 *.py[cod]
 gpt_functions/*
+!gpt_functions/accent.py
 !gpt_functions/weather.py

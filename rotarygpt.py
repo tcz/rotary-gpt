@@ -55,8 +55,10 @@ def register_functions(function_manager, path):
     for file_name in py_files:
         module_name = file_name[:-3]
         module = importlib.import_module(module_name, package=None)
-        if hasattr(module, 'GPT_FUNCTION'):
-            function_manager.register(module.GPT_FUNCTION)
+        if hasattr(module, 'GPT_FUNCTIONS'):
+            for function_definition in module.GPT_FUNCTIONS:
+                function_definition['name'] = module_name + '__' + function_definition['name']
+                function_manager.register(function_definition)
 
 def start():
     audio_queue_in = queue.Queue()
