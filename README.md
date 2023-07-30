@@ -4,6 +4,9 @@ Turn your rotary phone into home voice assistant with built-in ChatGPT.
 
 ## Video
 
+You can watch the demo video here:
+[https://youtu.be/y9bsL0o6I-A](https://youtu.be/y9bsL0o6I-A)
+
 ## Hardware
 
 I connected my old rotary phone to a Grandstream HT801 but other adapters might work for you. 
