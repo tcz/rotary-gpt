@@ -165,14 +165,11 @@ class SIPRequest:
             if line == '':
                 break
 
-            # Split the header line into key and value
             key, value = line.split(b':', 1)
 
-            # Remove leading and trailing whitespaces
             key = key.strip()
             value = value.strip()
 
-            # Store the header in the dictionary
             self.headers[key] = value
 
     def to_sip_message(self):
@@ -196,7 +193,6 @@ class SipResponse:
         self.body = None
 
     def to_sip_message(self):
-        # Start with the request line
         message = b"SIP/2.0 " + str(self.status_code).encode('ascii') + b" " + self.status_message + b"\r\n"
 
         headers_to_send = self.headers.copy()

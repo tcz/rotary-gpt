@@ -140,6 +140,7 @@ class Conversation:
             self.conversation_items.append(
                 {"role": "function", "content": function_response, "name": message['function_call']['name']}
             )
+            logging.info("Function response: \x1b[32;1m" + function_response + "\x1b[0m")
             return None
 
         logging.info("Agent message: \x1b[33;1m" + message['content'] + "\x1b[0m")
