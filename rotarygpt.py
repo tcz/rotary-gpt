@@ -2,6 +2,7 @@ import importlib
 import os
 import queue
 import threading, sys
+import time
 from functools import partial
 import logging
 
@@ -94,7 +95,8 @@ def start():
     threads['sip_server'].start()
 
     try:
-        input('Press enter to stop\n')
+        while True:
+            time.sleep(1)
     except KeyboardInterrupt:
         pass
 
