@@ -1,6 +1,8 @@
 import logging
 import re
 import socket
+import time
+
 
 class SIPServer:
     def __init__(self, bind_address, bind_port):
@@ -12,6 +14,7 @@ class SIPServer:
         self.incoming_call_callbacks = []
         self.call_ended_callbacks = []
         self.in_call = False
+        self.socket_start_time = None
 
     def register_incoming_call_callback(self, callback):
         self.incoming_call_callbacks.append(callback)
@@ -21,12 +24,7 @@ class SIPServer:
 
     def start(self, shutdown_event = None):
         self.shutdown_event = shutdown_event
-
-        self.socket = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
-        server_address_sip = (self.bind_address, self.bind_port)
-        self.socket.bind(server_address_sip)
-
-        logging.info(f'SIP server started on {self.bind_address}:{self.bind_port}')
+        self._bind_socket()
 
         while True:
             request = self._receive_request()
@@ -40,6 +38,22 @@ class SIPServer:
 
         logging.info('SIP server stopped')
 
+    def _bind_socket(self):
+        is_restart = None
+        if self.socket is not None:
+            self.socket.close()
+            is_restart = True
+
+        self.socket = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+        server_address_sip = (self.bind_address, self.bind_port)
+        self.socket.bind(server_address_sip)
+        self.socket_start_time = time.time()
+
+        if is_restart:
+            logging.info(f'SIP server restarted on {self.bind_address}:{self.bind_port}')
+        else:
+            logging.info(f'SIP server started on {self.bind_address}:{self.bind_port}')
+
     def _receive_request(self):
         data = b''
         while not self.shutdown_event.is_set():
@@ -48,6 +62,9 @@ class SIPServer:
                 chunk, address = self.socket.recvfrom(4096)
                 self.socket.settimeout(None)
             except socket.timeout:
+                if time.time() - self.socket_start_time > 60 and data == b'' and not self.in_call:
+                    logging.info(f'Periodic SIP socket restart')
+                    self._bind_socket()
                 continue
 
             data += chunk
@@ -58,8 +75,12 @@ class SIPServer:
                 request.parse_request_header(header)
 
                 if b'Content-Length' in request.headers:
-                    chunk, _ = self.socket.recvfrom(int(request.headers[b'Content-Length']) - len(body_so_far))
-                    request.body = body_so_far + chunk
+                    content_length = int(request.headers[b'Content-Length']) - len(body_so_far)
+                    while len(body_so_far) < content_length:
+                        chunk = self.socket.recvfrom(content_length - len(body_so_far))
+                        body_so_far += chunk
+
+                    request.body = body_so_far
 
                 return request
 
