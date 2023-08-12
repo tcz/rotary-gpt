@@ -134,6 +134,8 @@ a=ptime:20
             for callback in self.incoming_call_callbacks:
                 callback(request.from_address[0], port)
 
+            logging.debug(f'Finished incoming call callbacks')
+
         elif request.method == b'BYE':
             if not self.in_call:
                 return
@@ -156,6 +158,8 @@ a=ptime:20
             logging.debug(f'Calling call ended callbacks')
             for callback in self.call_ended_callbacks:
                 callback()
+
+            logging.debug(f'Finished call ended callbacks')
 
     @staticmethod
     def _extract_sip_host(sip_address):
