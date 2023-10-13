@@ -7,7 +7,7 @@ from functools import partial
 import logging
 
 from rotarygpt.conversation import Conversation
-from rotarygpt.rtp import RTPReceiver, RTPSender
+from rotarygpt.rtp import RTPReceiver, RTPSender, SharedSocket
 from rotarygpt.sip import SIPServer
 from rotarygpt.functions import FunctionManager
 from rotarygpt.utils import clear_queue
@@ -21,17 +21,19 @@ sys.setswitchinterval(0.001)
 def reset_event(event, *_):
     event.clear()
 
-def start_rpt_sender(threads, shutdown_event, audio_queue_out, ip, port):
-    rtp_sender = RTPSender(ip, port, audio_queue_out)
-    threads['rtp_sender'] = threading.Thread(target=rtp_sender.start, args=(shutdown_event,), daemon=True,
-                                             name="RTP sender")
-    threads['rtp_sender'].start()
+def start_rpt(threads, shutdown_event, audio_queue_in, audio_queue_out, ip, port):
+    shared_socket = SharedSocket()
+    shared_socket.bind('0.0.0.0', 5004)
 
-def start_rpt_receiver(threads, shutdown_event, audio_queue_in, *_):
-    rtp_receiver = RTPReceiver('0.0.0.0', 5004, audio_queue_in)
+    rtp_receiver = RTPReceiver(shared_socket, audio_queue_in)
     threads['rtp_receiver'] = threading.Thread(target=rtp_receiver.start, args=(shutdown_event,), daemon=True,
                                                name="RTP receiver")
     threads['rtp_receiver'].start()
+
+    rtp_sender = RTPSender(shared_socket, ip, port, audio_queue_out)
+    threads['rtp_sender'] = threading.Thread(target=rtp_sender.start, args=(shutdown_event,), daemon=True,
+                                             name="RTP sender")
+    threads['rtp_sender'].start()
 
 def start_conversation(threads, shutdown_event, audio_queue_in, audio_queue_out, function_manager, *_):
     conversation = Conversation(audio_queue_in, audio_queue_out, function_manager)
@@ -80,11 +82,11 @@ def start():
 
     sip_server.register_incoming_call_callback(partial(reset_event, call_ended_event))
 
-    sip_server.register_incoming_call_callback(partial(start_rpt_sender, threads, call_ended_event, audio_queue_out))
+    sip_server.register_incoming_call_callback(partial(start_rpt, threads, call_ended_event, audio_queue_in,
+                                                       audio_queue_out))
     sip_server.register_incoming_call_callback(partial(start_conversation, threads,
                                                        call_ended_event, audio_queue_in, audio_queue_out,
                                                        function_manager))
-    sip_server.register_incoming_call_callback(partial(start_rpt_receiver, threads, call_ended_event, audio_queue_in))
 
     sip_server.register_call_ended_callback(partial(finish_call, threads, call_ended_event,
                                                     audio_queue_in, audio_queue_out))

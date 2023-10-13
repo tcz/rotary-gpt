@@ -10,34 +10,28 @@ from rotarygpt.audio import wave_header
 
 class RTPReceiver:
 
-    def __init__(self, bind_address, bind_port, audio_chunk_queue):
-        self.bind_address = bind_address
-        self.bind_port = bind_port
+    def __init__(self, shared_socket, audio_chunk_queue):
         self.audio_chunk_queue = audio_chunk_queue
-        self.socket = None
+        self.shared_socket = shared_socket
         self.shutdown_event = None
 
     def start(self, shutdown_event = None):
         self.shutdown_event = shutdown_event
 
-        self.socket = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
-        server_address_rtp = (self.bind_address, self.bind_port)
-        self.socket.bind(server_address_rtp)
-
-        logging.info(f'RTP receiver started on {self.bind_address}:{self.bind_port}')
+        bind_address, bind_port = self.shared_socket.getsockname()
+        logging.info(f'RTP receiver started on {bind_address}:{bind_port}')
 
         self._receive_audio()
 
-        self.socket.close()
-        self.socket = None
+        self.shared_socket.close()
 
         logging.info(f'RTP receiver stopped')
 
     def _receive_audio(self):
-        self.socket.settimeout(0.2)
+        self.shared_socket.settimeout(0.2)
         while not self.shutdown_event.is_set():
             try:
-                chunk, address = self.socket.recvfrom(160 + 12)  # 20ms is 160 8bit samples plus header
+                chunk, address = self.shared_socket.recvfrom(160 + 12)  # 20ms is 160 8bit samples plus header
             except socket.timeout:
                 continue
 
@@ -46,11 +40,11 @@ class RTPReceiver:
 
 class RTPSender:
 
-    def __init__(self, connect_address, connect_port, audio_chunk_queue):
+    def __init__(self, shared_socket, connect_address, connect_port, audio_chunk_queue):
         self.connect_address = connect_address
         self.connect_port = connect_port
         self.audio_chunk_queue = audio_chunk_queue
-        self.socket = None
+        self.shared_socket = shared_socket
         self.shutdown_event = None
         self.sequence_number = random.randint(0, 255)
         self.timer = random.randint(0, 255)
@@ -62,14 +56,12 @@ class RTPSender:
 
     def start(self, shutdown_event = None):
         self.shutdown_event = shutdown_event
-        self.socket = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
 
         logging.info(f'RTP sender started with peer {self.connect_address}:{self.connect_port}')
 
         self._send_audio()
 
-        self.socket.close()
-        self.socket = None
+        self.shared_socket.close()
 
         self.file.close()
         self.file = None
@@ -98,7 +90,7 @@ class RTPSender:
                 header += self.timer.to_bytes(4, 'big', signed=False)
                 header += self.synchronization_source.to_bytes(4, 'big', signed=False)
 
-                self.socket.sendto(header + chunk[0:160], (self.connect_address, self.connect_port))
+                self.shared_socket.sendto(header + chunk[0:160], (self.connect_address, self.connect_port))
                 self.file.write(chunk[0:160])
 
                 chunk = chunk[160:]
@@ -110,6 +102,40 @@ class RTPSender:
                 accurate_sleep(max(0.0, sleep_time))
                 # Correcting in case the sleep time was negative
                 start_time = time.perf_counter() + min(sleep_time, 0.0)
+
+class SharedSocket:
+    def __init__(self):
+        self.socket = None
+
+    def bind(self, bind_address, bind_port):
+        if self.socket is not None:
+            return self.socket
+
+        self.socket = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+        self.socket.bind((bind_address, bind_port))
+
+        return self.socket
+
+    def settimeout(self, timeout):
+        if self.socket is not None:
+            self.socket.settimeout(timeout)
+
+    def recvfrom(self, size):
+        if self.socket is not None:
+            return self.socket.recvfrom(size)
+
+    def sendto(self, data, address):
+        if self.socket is not None:
+            self.socket.sendto(data, address)
+
+    def getsockname(self):
+        if self.socket is not None:
+            return self.socket.getsockname()
+
+    def close(self):
+        if self.socket is not None:
+            self.socket.close()
+            self.socket = None
 
 def accurate_sleep(duration):
     now = time.perf_counter()
